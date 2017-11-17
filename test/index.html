@@ -1,3 +1,9 @@
+こんにちは。
+いつも黒マチャートを愛用させてもらってます。
+
+私は今、黒マチャートに機能を追加、改良したものを製作しています。
+個人的な用途に使うものですが、もし、公開する場合ライブラリ等のライセンスはどのようにお考えですか？
+
 <!DOCTYPE html>
 <html lang="ja">
   <head>
@@ -8,7 +14,15 @@
     <meta name="robots" content="noindex,nofollow">
     <meta name="author" content="Kuromatch">
 
-    <title>Kuromaty Test</title>
+    <title>Chart Test</title>
+
+	<style>
+		@media screen and (min-width: 1200px) {
+			.chart {
+				width:80vw;float: right;
+			}
+		}
+	</style>
 
     <!-- Custom styles for this template -->
     <link href="lib/kuromaty.min.css" rel="stylesheet">
@@ -27,11 +41,11 @@
         <div id="period-items" class="pulldown-items"></div>
       </div>
 
-      <div class="item" id="zoomout">
-        <span>－</span>
-      </div>
       <div class="item" id="zoomin">
-        <span>＋</span>
+        <span>拡大 ＋</span>
+      </div>
+      <div class="item" id="zoomout">
+        <span>縮小 ー</span>
       </div>
     </header>
 
@@ -59,5 +73,10 @@
     <script src="https://kuromat.ch/socket.io/socket.io.js"></script>
     <script src="lib/kuromaty.js"></script>
     <script src="test/index.js"></script>
+
+	<script>
+		kuro.element.title.text("sec");
+		kuro.element.positions.text{"kind":"positions","body":[{"time":1505831495637,"side":"S","price":"445000","size":"0.001","margin":45},{"time":1505836555637,"side":"S","price":"449000","size":"0.01","margin":449}]}
+	</script>
   </body>
 </html>

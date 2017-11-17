@@ -1,3 +1,8 @@
+/*!
+    Copyright 2017 Kuromatch
+*/
+"use strict";
+
 import { Order, OrderLike } from "./Order";
 
 export class OrderSet {
@@ -8,7 +13,7 @@ export class OrderSet {
         if (orders) {
             orders.forEach(position => {
                 this.add(new Order(position));
-            });
+            })
         }
     }
 

@@ -32,10 +32,10 @@
     document.ontouchmove = function (e) { e.preventDefault(); }
     localStorage.setItem(location.href + ".isLocal", "true");
 
-    var symbols = ($.queryParameter("symbols") || "FX_BTC_JPY,BTC_JPY").split(",");
+    var symbols = ($.queryParameter("symbols") || "FX_BTC_JPY").split(",");
 
     var kuro = window.kuro = {
-        apiRoot: "/api/",
+        apiRoot: "https://kuromat.ch/api/",
         socket: io("https://kuromat.ch", {
             transports: ["websocket"]
         }),
@@ -47,7 +47,7 @@
         },
         stat: {
             ver: "",
-            lastLTP: 0,
+            lastLTP: 11111,
             board: {
                 asks: [],
                 bids: []
@@ -141,8 +141,6 @@
         decimalPower = 5;
     } else if (symbols[0] === "BCH_BTC") {
         decimalPower = 5;
-    } else if (symbols[0] === "BFX_BTC_USD") {
-        decimalPower = 1;
     }
 
     var kuromaty = kuro.kuromaty = new Kuromaty(kuro.element.kuromaty, {
@@ -174,16 +172,6 @@
         lineMA2: "#48758e",
         lineMA3: "#67305a"
     });
-
-    kuromaty.overlays = {
-        EMA1: new Kuromaty.overlays.EMA({ period: 5, colorKey: "lineMA1" }),
-        // EMA2: new Kuromaty.overlays.EMA({ period: 21, colorKey: "lineMA2" }),
-        EMA3: new Kuromaty.overlays.EMA({ period: 100, backCount: 100, colorKey: "lineMA3" }),
-        BollingerBand: new Kuromaty.overlays.BollingerBand(),
-        ParabolicSAR: new Kuromaty.overlays.ParabolicSAR(),
-        Chandelier: new Kuromaty.overlays.ChandelierExit(),
-    };
-
     document.body.style.background = kuromaty.color.bg;
 
     // リサイズハンドラ
@@ -347,7 +335,6 @@
         }, false);
 
         window.postMessage('{"kind":"positions","body":[{"time":1505831495637,"side":"S","price":"445000","size":"0.001","margin":45},{"time":1505836555637,"side":"S","price":"449000","size":"0.01","margin":449}]}', "*");
-        window.postMessage('{"kind":"orders","body":[{"time":1505836364633,"type":"指値","side":"S","price":"449000","origSize":"0.01","size":"0.01"},{"time":1505831416633,"type":"IFD","side":"L/S","price":"445000","origSize":"0.002","size":"0.001"},{"time":1505831348633,"type":"IFD","side":"L/S","price":"442141","origSize":"0.002","size":"0.002"}]}', "*");
     }
 
     // 注文 (テスト中)
@@ -366,7 +353,7 @@
 
     // 板情報 (テスト中)
     if (kuro.options["板表示"]) {
-        kuro.stat.boardUpdated = false;
+        kuro.stat.boardUpdated = true;
         kuro.pubnubBoard = new PUBNUB.ws("wss://pubsub.pubnub.com//sub-c-52a9ab50-291b-11e5-baaa-0619f8945a4f/lightning_board_" + symbols[0]);
         kuro.pubnubBoard.onmessage = function (evt) {
 

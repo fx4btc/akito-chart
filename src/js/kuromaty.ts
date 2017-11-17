@@ -9,27 +9,10 @@ import { OrderSet } from "./OrderSet";
 import flagrate from "flagrate/lib/es6/flagrate";
 import { ContextMenu } from "flagrate/lib/es6/flagrate/context-menu";
 import { Decimal } from "decimal.js-light";
-import { ChartDimensions, Overlay } from "./Overlay";
-import * as overlays from "./overlays/";
-
-enum Month {
-    Jan,
-    Feb,
-    Mar,
-    Apr,
-    May,
-    Jun,
-    Jul,
-    Aug,
-    Sep,
-    Oct,
-    Nov,
-    Dec
-}
 
 /** time, open, high, low, close, volume, askDepth, bidDepth, sellVolume, buyVolume */
 export type Bar = [number, number, number, number, number, number, number, number, number, number];
-export const enum BarColumn {
+const enum BarColumn {
     Time,
     Open,
     High,
@@ -58,7 +41,6 @@ export interface Options {
     chartCount?: number;
     chartTitles?: string[];
     chartOverlay?: boolean;
-    cursorSnapToGrid?: boolean;
     barWidth?: number;
     barMargin?: number;
     decimalPower?: number;
@@ -146,8 +128,6 @@ export type Position = PositionLike;
 
 export class Kuromaty {
 
-    static readonly overlays = overlays;
-
     timePeriod = 1;
     barIndex = 0;
     cursorPrice = 0;
@@ -192,8 +172,6 @@ export class Kuromaty {
     canvases: HTMLCanvasElement[];
     contexts: CanvasRenderingContext2D[];
 
-    overlays: { [name: string]: Overlay } = {};
-
     private _dpr = window.devicePixelRatio;
     private _rootContainer: HTMLDivElement;
     private _chartContainer: HTMLDivElement;
@@ -224,10 +202,6 @@ export class Kuromaty {
         if (options.chartOverlay === undefined) {
             options.chartOverlay = false;
         }
-        if (options.cursorSnapToGrid === undefined) {
-            options.cursorSnapToGrid = true;
-        }
-
         options.barWidth = options.barWidth || 5;
         options.barMargin = options.barMargin || 3;
         options.decimalPower = options.decimalPower || 0;
@@ -275,7 +249,7 @@ export class Kuromaty {
         });
 
         this._hasUpdated = true;
-
+        
         this._redraw();
     }
 
@@ -565,7 +539,7 @@ export class Kuromaty {
         this.contexts.forEach(context => {
             context.scale(this._dpr, this._dpr);
             context.imageSmoothingEnabled = false;
-        });
+        })
 
         const tick = () => {
 
@@ -584,46 +558,45 @@ export class Kuromaty {
 
     private _draw() {
 
-        const canvasW = this.canvasW;
-        const canvasH = this.canvasH;
-        const barW = this.options.barWidth + this.options.barMargin;
-        const chartW = canvasW - 45;
-        const chartH = canvasH - 16;
-        const chartM = barW * Math.max(2, 5 - this.barIndex); // 右側の余白の幅 板や値幅などを表示
-        const chartI = Math.max(0, this.barIndex - 3); // 表示対象の足の先頭位置
-        const barCount = Math.round((chartW - chartM) / barW) - 1;
-        const decimal = this._decimal;
-        const decimalPower = this.options.decimalPower;
-        const period = this.timePeriod;
+        const canvasW = this.canvasW,
+            canvasH = this.canvasH,
+            barW = this.options.barWidth + this.options.barMargin,
+            chartW = canvasW - 45,
+            chartH = canvasH - 16,
+            chartM = barW * Math.max(2, 5 - this.barIndex),
+            chartI = Math.max(0, this.barIndex - 3),
+            barCount = Math.round((chartW - chartM) / barW) - 1,
+            decimal = this._decimal,
+            decimalPower = this.options.decimalPower,
+            period = this.timePeriod;
 
-        let i = 0;
-        let j = 0;
-        let l = 0;
-        const m = this.charts.length;
-        let highest = 0;
-        let lowest = Infinity;
-        let maxVolume = 0;
-        let maxDepth = 0;
-        let minDepth = Infinity;
-        let bar: Bar;
-        let barH = 0;
-        let barDate: Date;
-        let barDateMinutes: number;
-        let barDateHours: number;
-        let barDateDate: number;
-        let barDateMonth: number;
-        let lowestGridPrice: number;
-        let gridPriceDelta: number;
+        let i = 0,
+            j = 0,
+            l = 0,
+            m = this.charts.length,
+            end = false,
+            highest = 0,
+            lowest = Infinity,
+            maxVolume = 0,
+            minVolume = Infinity,
+            maxDepth = 0,
+            minDepth = Infinity,
+            bar: Bar,
+            barH = 0,
+            barDate: Date,
+            barDateMinutes: number,
+            barDateHours: number,
+            barDateDate: number;
 
         this.hasDepleted = false;
 
         // pre
         for (j = 0; j < m; j++) {
-            const chart = this.charts[j];
+            let chart = this.charts[j];
 
             chart.context.clearRect(0, 0, canvasW, canvasH);
 
-            if (!chart.selected) {
+            if (period === 0 && !chart.selected) {
                 continue;
             }
 
@@ -633,13 +606,11 @@ export class Kuromaty {
             maxDepth = 0;
             minDepth = Infinity;
 
-            const requireBarCount = barCount + this.getRequiredBackCount(barCount);
-
-            chart._bars = this._getBars(j, chartI, requireBarCount);
+            chart._bars = this._getBars(j, chartI, barCount * 2);
             l = Math.min(barCount, chart._bars.length);
 
             if (chart.selected) {
-                if (requireBarCount > chart._bars.length && this.maxBarCount > chart.bars.length) {
+                if (barCount > chart._bars.length && this.maxBarCount > chart.bars.length) {
                     this.hasDepleted = true;
                 }
             }
@@ -681,7 +652,7 @@ export class Kuromaty {
             chart.lowestPrice = lowest;
             chart.highestPricePrinted = false;
             chart.lowestPricePrinted = false;
-            const priceRatio = chartH / (highest - lowest);
+            let priceRatio = chartH / (highest - lowest);
             chart.highest = highest + Math.round(((chartH / 3) / priceRatio) * decimal) / decimal;
             chart.lowest = lowest - Math.round(((chartH / 3) / priceRatio) * decimal) / decimal;
             chart.range = chart.highest - chart.lowest;
@@ -709,11 +680,11 @@ export class Kuromaty {
 
         // main
         for (j = 0; j < m; j++) {
-            const chart = this.charts[j];
-            const ctx = chart.context;
+            let chart = this.charts[j];
+            let ctx = chart.context;
             let barX = chartW - chartM;
 
-            if (!chart.selected) {
+            if (period === 0 && !chart.selected) {
                 continue;
             }
 
@@ -755,7 +726,6 @@ export class Kuromaty {
                     - Math.round(bar[BarColumn.Volume] * chart.volumeRatio)
                 );
 
-                // candlestick
                 if (period !== 0) {
                     // bar height
                     barH = Math.round((bar[BarColumn.Open] - bar[BarColumn.Close]) * chart.ratio);
@@ -785,8 +755,8 @@ export class Kuromaty {
                 if (period !== 0 && bar[BarColumn.High] === chart.highestPrice) {
                     this.overlay.context.fillStyle = this.color.long;
 
-                    const hpX = barX - this.options.barWidth / 2;
-                    const hpY = Math.round((chart.highest - bar[BarColumn.High]) * chart.ratio);
+                    let hpX = barX - this.options.barWidth / 2;
+                    let hpY = Math.round((chart.highest - bar[BarColumn.High]) * chart.ratio);
 
                     this.overlay.context.beginPath();
                     this.overlay.context.moveTo(hpX, hpY - 2);
@@ -818,8 +788,8 @@ export class Kuromaty {
                 if (period !== 0 && bar[BarColumn.Low] === chart.lowestPrice) {
                     this.overlay.context.fillStyle = this.color.short;
 
-                    const lpX = barX - this.options.barWidth / 2;
-                    const lpY = Math.round((chart.highest - bar[BarColumn.Low]) * chart.ratio);
+                    let lpX = barX - this.options.barWidth / 2;
+                    let lpY = Math.round((chart.highest - bar[BarColumn.Low]) * chart.ratio);
 
                     this.overlay.context.beginPath();
                     this.overlay.context.moveTo(lpX, lpY + 2);
@@ -853,7 +823,6 @@ export class Kuromaty {
                 barDateMinutes = barDate.getMinutes();
                 barDateHours = barDate.getHours();
                 barDateDate = barDate.getDate();
-                barDateMonth = barDate.getMonth();
 
                 // datetime
                 if (
@@ -866,9 +835,9 @@ export class Kuromaty {
                     (period >= 30 && period < 60 && barDateMinutes % 60 === 0 && barDateHours % 6 === 0) ||
                     (period >= 60 && period < 120 && barDateMinutes % 60 === 0 && barDateHours % 12 === 0) ||
                     (period >= 120 && period < 240 && barDateHours === 0) ||
-                    (period >= 240 && period < 360 && barDateHours === 0 && barDateDate % 2 === 1) ||
-                    (period >= 360 && period < 720 && barDateHours === 0 && barDateDate % 3 === 1) ||
-                    (period >= 720 && barDateHours === 0 && barDateDate % 7 === 1)
+                    (period >= 240 && period < 360 && barDateHours === 0 && barDateDate % 2 === 0) ||
+                    (period >= 360 && period < 720 && barDateHours === 0 && barDateDate % 3 === 0) ||
+                    (period >= 720 && barDateHours === 0 && barDateDate % 7 === 0)
                 ) {
                     // vertical grid
                     this.grid.context.fillStyle = this.color.grid;
@@ -881,50 +850,36 @@ export class Kuromaty {
 
                     // time
                     let timeStr;
-                    if (!(barDateHours === 0 && barDateMinutes === 0)) {
-                        timeStr = `${barDateHours}:${util.zeroPadding(barDateMinutes, 2)}`;
-                    } else if (period >= 1440 && barDateDate > 22) {
-                        timeStr = null;
-                    } else if (barDateDate !== 1) {
-                        timeStr = period >= 1440 ? barDateDate : `${barDateMonth + 1}/${barDateDate}'`;
-                    } else if (barDateMonth !== 0) {
-                        timeStr = Month[barDateMonth];
+                    if (barDateHours === 0 && barDateMinutes === 0) {
+                        timeStr = `${barDate.getMonth() + 1}/${barDateDate}'`;
                     } else {
-                        timeStr = barDate.getFullYear();
+                        timeStr = `${barDateHours}:${util.zeroPadding(barDateMinutes, 2)}`;
                     }
-
-                    if (timeStr !== null) {
-                        this.grid.context.fillStyle = this.color.text;
-                        this.grid.context.font = "10px sans-serif";
-                        this.grid.context.fillText(
-                            timeStr,
-                            barX - Math.ceil(this.options.barWidth / 2),
-                            canvasH - 4
-                        );
-                    }
+                    this.grid.context.fillStyle = this.color.text;
+                    this.grid.context.font = "10px sans-serif";
+                    this.grid.context.fillText(
+                        timeStr,
+                        barX - Math.ceil(this.options.barWidth / 2),
+                        canvasH - 4
+                    );
                 }
             }// bars
 
             if (chart.selected) {
                 // LTP Position (Y)
                 let ltpp = Math.round((chart.highest - chart.latest) * chart.ratio);
-                if (!isFinite(ltpp)) {
+                if (!ltpp) {
                     ltpp = Math.round(canvasH / 2);
                 }
 
                 // horizontal grid (price)
-                let lp = Infinity;
-                let cp = 0;
-                gridPriceDelta = decimal === 1 ? 1000 : 100 / decimal;
+                let lp = Infinity, cp = 0, add = decimal === 1 ? 1000 : 100 / decimal;
                 if (period === 0) {
-                    gridPriceDelta /= 100;
+                    add /= 100;
                 }
-
-                gridPriceDelta *= Math.ceil(80 / (gridPriceDelta * chart.ratio));
-                lowestGridPrice = this.calculateHorizontalGridLowestPrice(chart, gridPriceDelta);
-                for (i = lowestGridPrice; i < chart.highest; i += gridPriceDelta) {
+                for (i = chart.lowest - chart.lowest % add; i < chart.highest; i += add) {
                     cp = Math.round((chart.highest - i) * chart.ratio);
-                    if (cp + 30 > chartH) {
+                    if (lp - cp < 80 || cp + 30 > chartH) {
                         continue;
                     }
 
@@ -960,7 +915,7 @@ export class Kuromaty {
                     this.color.border,
                     [2, 1]
                 );
-                const priceRangeLabelY = ((chart.highestPrice - chart._bars[0][BarColumn.High]) > (chart._bars[0][BarColumn.Low] - chart.lowestPrice)) ? ((chart.highest - chart.highestPrice) * chart.ratio + 40) : ((chart.highest - chart.lowestPrice) * chart.ratio - 40);
+                let priceRangeLabelY = ((chart.highestPrice - chart._bars[0][BarColumn.High]) > (chart._bars[0][BarColumn.Low] - chart.lowestPrice)) ? ((chart.highest - chart.highestPrice) * chart.ratio + 40) : ((chart.highest - chart.lowestPrice) * chart.ratio - 40);
                 this.grid.context.save();
                 this.grid.context.fillStyle = this.color.bg;
                 this.grid.context.fillRect(
@@ -984,14 +939,14 @@ export class Kuromaty {
                 this.overlay.context.save();
 
                 if (chart._bars[0][BarColumn.SellVolume] > chart._bars[0][BarColumn.BuyVolume]) {
-                    const grad = this.overlay.context.createLinearGradient(0, 1, 0, ltpp - 2);
+                    let grad = this.overlay.context.createLinearGradient(0, 1, 0, ltpp - 2);
                     grad.addColorStop(0, this.color.askOrder);
                     grad.addColorStop(1, this.color.bg);
                     this.overlay.context.fillStyle = grad;
                     this.overlay.context.globalAlpha = (chart._bars[0][BarColumn.SellVolume] - chart._bars[0][BarColumn.BuyVolume]) / chart._bars[0][BarColumn.Volume];
                     this.overlay.context.fillRect(chartW - 1, 1, -4, ltpp - 2);
                 } else if (chart._bars[0][BarColumn.SellVolume] < chart._bars[0][BarColumn.BuyVolume]) {
-                    const grad = this.overlay.context.createLinearGradient(0, ltpp + 1, 0, chartH);
+                    let grad = this.overlay.context.createLinearGradient(0, ltpp + 1, 0, chartH);
                     grad.addColorStop(0, this.color.bg);
                     grad.addColorStop(1, this.color.bidOrder);
                     this.overlay.context.fillStyle = grad;
@@ -1001,7 +956,7 @@ export class Kuromaty {
 
                 this.overlay.context.restore();
 
-                if (this.cursorX > -1 && chart._bars[0].length > BarColumn.BuyVolume) {
+                if (this.cursorX > -1) {
                     this._drawDepthIndicator(
                         this.overlay.context,
                         chartW - chartM - 7,
@@ -1038,8 +993,8 @@ export class Kuromaty {
 
                 // Ask/Bid Price Indicator (v2.24)
                 if (chart.askPrice && chart.bidPrice) {
-                    const askp = Math.round((chart.highest - chart.askPrice) * chart.ratio);
-                    const bidp = Math.round((chart.highest - chart.bidPrice) * chart.ratio);
+                    let askp = Math.round((chart.highest - chart.askPrice) * chart.ratio);
+                    let bidp = Math.round((chart.highest - chart.bidPrice) * chart.ratio);
 
                     this._drawPriceTag2(
                         this.overlay.context,
@@ -1159,65 +1114,25 @@ export class Kuromaty {
             }
         } // main
 
-        // overlays
-        const dimensions: ChartDimensions = {
-            width: chartW,
-            height: chartH,
-            rightMargin: chartM,
-            firstBarIndex: chartI,
-            barCount,
-            barMargin: this.options.barMargin,
-            barWidth: this.options.barWidth
-        };
-
+        // technical
         for (j = 0; j < m; j++) {
             const chart = this.charts[j];
             if (!chart.selected) {
                 break;
             }
 
+            const ctx = chart.context;
+            const barX = chartW - chartM - 0.5;
+
             if (period === 0) {
-                const ctx = chart.context;
-
-                ctx.save();
-
-                ctx.strokeStyle = this.color.text;
-                ctx.lineWidth = 1;
-                ctx.lineCap = "round";
-                ctx.lineJoin = "round";
-                ctx.setLineDash([]);
-                ctx.beginPath();
-
-                let i = 0;
-                let p = 0;
-                let y = 0;
-                let x = chartW - chartM - 0.5 + barW;
-                for (; i < barCount; i++) {
-                    if (!chart._bars[i]) {
-                        break;
-                    }
-                    x -= barW;
-
-                    p = chart._bars[i][BarColumn.Close];
-                    y = Math.round((chart.highest - p) * chart.ratio) + 0.5;
-
-                    if (i === 0) {
-                        ctx.moveTo(x, y);
-                    }
-                    ctx.lineTo(x, y);
-                }
-
-                ctx.stroke();
-
-                ctx.restore();
+                // tick (special)
+                this._drawSMA(ctx, barX, chart, l, 1, this.color.text);
+            } else {
+                this._drawSMA(ctx, barX, chart, l, 10, this.color.lineMA1);
+                this._drawSMA(ctx, barX, chart, l, 21, this.color.lineMA2);
+                this._drawSMA(ctx, barX, chart, l, 34, this.color.lineMA3);
             }
-
-            for (const name in this.overlays) {
-                if (this.overlays[name].minPeriod <= period) {
-                    this.overlays[name].draw(chart, dimensions, this.color);
-                }
-            }
-        } // overlays
+        } // technical
 
         // datetime
         barDate = new Date(this.charts[0]._bars[0][BarColumn.Time]);
@@ -1245,23 +1160,12 @@ export class Kuromaty {
                 chartH
             );
 
-            const chart = this.charts[0];
-
-            if (this.options.cursorSnapToGrid) {
-                const nearestGridPrice = lowestGridPrice + Math.floor((chart.highest - this.cursorY / chart.ratio - lowestGridPrice) / gridPriceDelta) * gridPriceDelta;
-                const nearestGridY = Math.floor((chart.highest - nearestGridPrice) * chart.ratio);
-                if (nearestGridY === Math.floor(this.cursorY) || nearestGridY === Math.ceil(this.cursorY)) {
-                    this.cursorPrice = nearestGridPrice;
-                }
-            }
-
-            if (this.cursorPrice === 0) {
-                this.cursorPrice = Math.ceil((chart.highest - this.cursorY / chart.ratio) * decimal) / decimal;
-                if (decimal === 1) {
-                    this.cursorPrice = Math.round(this.cursorPrice / 50) * 50;
-                } else {
-                    this.cursorPrice = Math.round(this.cursorPrice * (decimal / 10)) / (decimal / 10);
-                }
+            let chart = this.charts[0];
+            this.cursorPrice = Math.ceil((chart.highest - this.cursorY / chart.ratio) * decimal) / decimal;
+            if (decimal === 1) {
+                this.cursorPrice = Math.round(this.cursorPrice / 50) * 50;
+            } else {
+                this.cursorPrice = Math.round(this.cursorPrice * (decimal / 10)) / (decimal / 10);
             }
             const cursorPriceY = Math.round((chart.highest - this.cursorPrice) * chart.ratio);
 
@@ -1303,7 +1207,7 @@ export class Kuromaty {
             this.cursorBoard = Math.round(this.cursorBoard);
             if (this.cursorBoard > 0) {
                 const cursorBoardPriceY = Math.round((chart.highest - this.cursorBoardPrice) * chart.ratio);
-
+                
                 this._drawBorder(
                     this.overlay.context,
                     chartW - 25,
@@ -1333,7 +1237,7 @@ export class Kuromaty {
                     cursorBoardPriceY + 3,
                     20
                 );
-
+                
                 this.overlay.context.restore();
             }
 
@@ -1436,7 +1340,7 @@ export class Kuromaty {
                     cursorPriceY + 5,
                     56
                 );
-
+                
                 this.overlay.context.restore();
             }
         } else {
@@ -1480,18 +1384,6 @@ export class Kuromaty {
             this._afs--;
             this._hasUpdated = true;
         }
-    }
-
-    private getRequiredBackCount(required = 0) {
-
-        for (const name in this.overlays) {
-            const overlayRequires = this.overlays[name].requiredBackCount;
-            if (overlayRequires > required) {
-                required = overlayRequires;
-            }
-        }
-
-        return required;
     }
 
     private _drawPricePopEffect(chart: Chart, decimal: number, chartW: number, ltpp: number): void {
@@ -1553,7 +1445,7 @@ export class Kuromaty {
             return chart.bars.slice(start, start + barCount);
         } else if (period === 0) {
             return chart.ticks.slice(start, start + barCount).map(tick => {
-                return <Bar> [
+                return <Bar>[
                     tick[TickColumn.Time],
                     tick[TickColumn.Ltp],
                     tick[TickColumn.Ltp],
@@ -1589,7 +1481,7 @@ export class Kuromaty {
             );
             for (; i >= backCount; i--) {
                 date = new Date(hBars[i][BarColumn.Time]);
-
+    
                 if (
                     bars.length === 0 ||
                     (
@@ -1611,7 +1503,7 @@ export class Kuromaty {
                     ]);
                     continue;
                 }
-
+    
                 if (bars[0][BarColumn.High] < hBars[i][BarColumn.High]) {
                     bars[0][BarColumn.High] = hBars[i][BarColumn.High];
                 }
@@ -1756,7 +1648,7 @@ export class Kuromaty {
                     label: `${price}`,
                     isDisabled: true
                 },
-                <any> "--",
+                <any>"--",
                 {
                     labelHTML: "価格をコピー",
                     onSelect: () => {
@@ -1764,7 +1656,7 @@ export class Kuromaty {
                     }
                 },
                 ...quickOrderItems,
-                <any> "--",
+                <any>"--",
                 {
                     label: "価格マーカー全消去",
                     onSelect: () => {
@@ -1772,7 +1664,7 @@ export class Kuromaty {
                         this._hasUpdated = true;
                     }
                 },
-                <any> "--",
+                <any>"--",
                 {
                     label: "キャンセル"
                 }
@@ -1796,7 +1688,7 @@ export class Kuromaty {
         let offsetX = ev.offsetX;
         let offsetY = ev.offsetY;
         if (!offsetX && !offsetY && ev.target) {
-            const rect = (<Element> ev.target).getBoundingClientRect();
+            const rect = (<Element>ev.target).getBoundingClientRect();
             offsetX = ev.clientX - rect.left;
             offsetY = ev.clientY - rect.top;
         }
@@ -1833,7 +1725,7 @@ export class Kuromaty {
         let offsetX = ev.offsetX;
         let offsetY = ev.offsetY;
         if (!offsetX && !offsetY) {
-            const rect = (<Element> ev.target).getBoundingClientRect();
+            const rect = (<Element>ev.target).getBoundingClientRect();
             offsetX = ev.clientX - rect.left;
             offsetY = ev.clientY - rect.top;
         }
@@ -1872,7 +1764,7 @@ export class Kuromaty {
         let offsetX = ev.offsetX;
         let offsetY = ev.offsetY;
         if (!offsetX && !offsetY) {
-            const rect = (<Element> ev.target).getBoundingClientRect();
+            const rect = (<Element>ev.target).getBoundingClientRect();
             offsetX = ev.clientX - rect.left;
             offsetY = ev.clientY - rect.top;
         }
@@ -1956,7 +1848,7 @@ export class Kuromaty {
     private _drawVerticalRange(ctx: CanvasRenderingContext2D,
         x: number, y: number, h: number,
         color: string, lineDash: number[]) {
-
+        
         x += 0.5;
         y = Math.round(y);
         h = Math.round(h);
@@ -2170,60 +2062,53 @@ export class Kuromaty {
         ctx.restore();
     }
 
-    private calculateHorizontalGridLowestPrice(chart, delta) {
-        const m = findNiceValue(chart.highest, chart.lowest);
+    private _drawSMA(ctx: CanvasRenderingContext2D,
+        x: number, chart: Chart, count: number, value: number, color: string) {
 
-        return m - Math.ceil((m - chart.lowest) / delta) * delta;
+        const barW = this.options.barMargin + this.options.barWidth;
+        x = x + barW;
 
-        function findNiceValue(high, low) {
-            const highStr = Math.floor(high).toString(10);
-            const lowStr = Math.floor(low).toString(10);
+        ctx.save();
 
-            if (low < 0 || highStr.length !== lowStr.length) {
-                const h = Number(highStr.charAt(0));
-                let x;
-                if (h >= 5) {
-                    x = 5;
-                } else if (h >= 2) {
-                    x = 2;
-                } else {
-                    x = 1;
-                }
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.setLineDash([]);
+        ctx.beginPath();
 
-                return x * Math.pow(10, highStr.length - 1);
+        let i = 0,
+            j,
+            bar,
+            p = 0,
+            y = 0;
+        for (; i < count; i++) {
+            if (!chart._bars[i] || !chart._bars[i + value]) {
+                break;
             }
+            x -= barW;
 
-            const length = highStr.length;
-            for (let i = 0; i < length; i++) {
-                if (highStr.charAt(i) !== lowStr.charAt(i)) {
-                    const topDigit = Number(highStr.substring(0, i - 1)) * 10;
-                    const h = Number(highStr.charAt(i));
-                    const l = Number(highStr.charAt(i));
-
-                    let x;
-                    if (l === 0) {
-                        x = 0;
-                    } else if (h >= 5 && l <= 5) {
-                        x = 5;
-                    } else if (l % 2 === 0) {
-                        x = l;
-                    } else if (h % 2 === 0) {
-                        x = h;
-                    } else {
-                        x = Math.floor((h + l) / 2);
-                    }
-
-                    return (topDigit + x) * Math.pow(10, length - i - 1);
-                }
+            p = 0;
+            for (j = 0; j < value; j++) {
+                p += chart._bars[i + j][BarColumn.Close];
             }
+            p /= value;
+            y = Math.round((chart.highest - p) * chart.ratio) + 0.5;
 
-            return low;
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            }
+            ctx.lineTo(x, y);
         }
+
+        ctx.stroke();
+
+        ctx.restore();
     }
 }
 
 if (window.Kuromaty === undefined) {
-    (<any> window).Kuromaty = Kuromaty;
+    (<any>window).Kuromaty = Kuromaty;
 }
 
 declare global {

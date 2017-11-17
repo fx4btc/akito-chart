@@ -8,7 +8,6 @@ const gutil = require("gulp-util");
 const sourcemaps = require("gulp-sourcemaps");
 const rename = require("gulp-rename");
 const uglify = require("gulp-uglify");
-const tslint = require("gulp-tslint");
 const typescript = require("gulp-typescript");
 const less = require("gulp-less");
 const cleanCSS = require("gulp-clean-css");
@@ -29,19 +28,7 @@ gulp.task("clean", () => {
     ]);
 });
 
-gulp.task("tslint", () => {
-    return gulp
-        .src([
-            "src/**/*.ts"
-        ])
-        .pipe(tslint())
-        .pipe(tslint.report({
-            emitError: false,
-            summarizeFailureOutput: true
-        }));
-});
-
-gulp.task("tsc", ["tslint"], () => {
+gulp.task("tsc", () => {
 
     const tsResult = gulp
         .src([
@@ -49,7 +36,6 @@ gulp.task("tsc", ["tslint"], () => {
         ])
         .pipe(sourcemaps.init())
         .pipe(typescript({
-            alwaysStrict: true,
             typescript: require("typescript"),
             target: "es6",
             module: "es6",
@@ -63,7 +49,6 @@ gulp.task("tsc", ["tslint"], () => {
             "src/js/**/*.ts"
         ])
         .pipe(typescript({
-            alwaysStrict: true,
             typescript: require("typescript"),
             target: "es6",
             module: "system",
